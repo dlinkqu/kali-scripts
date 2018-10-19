@@ -15,7 +15,7 @@ ROOT_DIR := ${CURDIR}
 MODWIFI_RELEASE=modwifi-4.7.4-experimental-1.tar.gz
 MODWIFI_URL=https://github.com/vanhoefm/modwifi/raw/master/releases/${MODWIFI_RELEASE}
 .DEFAULT_GOAL := help
-# .PHONY: help clean archivers 32bit common-tools deps wifi wireless-db reaver
+.PHONY: help clean archivers 32bit common-tools deps wifi wireless-db reaver dev-ide
 
 # Macros
 .CLEAR=\x1b[0m
@@ -71,7 +71,7 @@ help:
 	@egrep -o "^#: (.+)" [Mm]akefile  |sort| sed "s/#: /	*  `printf "\033[32m"`/"| sed "s/ - /`printf "\033[0m"` - /"
 	@echo "\t+---------------------------------------------------------------+"
 	@echo "\t\t`printf "\033[32m"`      greetz fly to all DC7499 community`printf "\033[0m"`"
-	@echo "\t\t`printf "\033[32m"`           ~~-<  @090h 2016  >-~~`printf "\033[0m"`\n"
+	@echo "\t\t`printf "\033[32m"`           ~~-<  @090h 2018  >-~~`printf "\033[0m"`\n"
 
 #: clean - cleanup source code and unused packages              *
 clean:
@@ -157,7 +157,7 @@ dev-build:
 	dkms patchutils strace wdiff pkg-config automake autoconf flex bison gawk flex gettext \
 	linux-source libncurses5-dev libreadline6 libreadline6-dev \
 	libbz2-dev zlib1g-dev fakeroot ncurses-dev libtool libmagickcore-dev libmagick++-dev libmagickwand-dev \
-	libyaml-dev libxslt1-dev libxml2-dev libxslt-dev libc6-dev python-pip
+	libyaml-dev libxslt1-dev libxml2-dev libxslt-dev libc6-dev python-pip libsqlite3-dev sqlite3
 	# linux-headers-`uname -r`
 
 ##: dev-crypto - install crypto libraries
@@ -165,16 +165,46 @@ dev-crypto:
 	@echo "installing crypto libs"
 	@apt-get install -y openssl libssl-dev python-m2crypto libgcrypt20 libgcrypt20-dev cracklib-runtime
 
-##: dev-db - install DB libraries
-dev-db:
-	@echo "installing db libs"
-	@apt-get install -y libsqlite3-dev sqlite3 # libmysqlclient-dev
+##: dev-ide - install IDE (Atom,PyCharm, etc)
+dev-ide:
+	@echo "installing Atom IDE"
+	curl -L https://packagecloud.io/AtomEditor/atom/gpgkey | sudo apt-key add -
+	echo "deb [arch=amd64] https://packagecloud.io/AtomEditor/atom/any/ any main" > /etc/apt/sources.list.d/atom.list
+	apt-get update &&  apt-get install -y atom
 
-##: dev-network - difrent network libraries                        *
+##: dev-network - install different network libraries                        *
 dev-network:
 	@echo "installing network libs"
 	@apt-get install -y libpcap-dev libpcap0.8 libpcap0.8-dev libdnet \
 	libnetfilter-queue-dev libnl-genl-3-dev libssh2-1-dev
+
+##: dev-android - install Android SDK/NDK and other tools                    *
+dev-android: dev-java deps
+	@echo "Installing Android Studio dependencies (ADB, KVM, QEMU)"
+	sudo apt install -y gcc-multilib g++-multilib libc6-dev-i386 qemu-kvm mesa-utils adb
+	@echo "Adding Android Studio repository"
+	@echo "deb http://ppa.launchpad.net/maarten-fonville/android-studio/ubuntu trusty main" > /etc/apt/sources.list.d/android.list
+	@echo "Adding Android Studio key: 4DEA8909DC6A13A3"
+	apt-key adv --keyserver hkp://keyserver.ubuntu.com --recv-keys 4DEA8909DC6A13A3
+	apt-get update && apt -y install android-studio netbeans-installer
+
+##: dev-crossdev - install cross platfrorm dev tools
+dev-crossdev:	deps
+	# http://www.emdebian.org/crosstools.html
+	@echo "installing Emdebian, xapt"
+	apt-get install emdebian-archive-keyring xapt -y
+	# sudo apt-get install gcc-msp430 binutils-msp430 msp430-libc msp430mcu mspdebug
+	# apt_add_source emdebian
+	# cp -f "files/etc/emdebian.list" /etc/apt/sources.list.d/emdebian.list && apt-get update -y
+	echo "deb http://ftp.us.debian.org/debian/ squeeze main" > /etc/apt/sources.list.d/emdebian.list
+	echo "deb http://www.emdebian.org/debian/ squeeze main" >> /etc/apt/sources.list.d/emdebian.list
+	echo "deb http://www.emdebian.org/debian/ oldstable main" >> /etc/apt/sources.list/emdebian.list
+	apt-get update -y
+	@echo "installing GCC-4.4 for mips, mipsel"
+	apt-get install -y linux-libc-dev-mipsel-cross libc6-mipsel-cross libc6-dev-mipsel-cross \
+	binutils-mipsel-linux-gnu gcc-4.4-mipsel-linux-gnu g++-4.4-mipsel-linux-gnu
+	apt-get install -y linux-libc-dev-mips-cross libc6-mips-cross libc6-dev-mips-cross \
+	binutils-mips-linux-gnu gcc-4.4-mips-linux-gnu g++-4.4-mips-linux-gnu -y
 
 ##: dev-python - install python developer environment            *
 dev-python:	dev-vcs dev-db
@@ -191,6 +221,16 @@ dev-python:	dev-vcs dev-db
 	else \
 		echo "PyEnv already installed"; \
 	fi;
+
+##: dev-java - install Oracle Java       *
+dev-java:
+	@echo "installing webupd8team repo..."
+	@echo "deb http://ppa.launchpad.net/webupd8team/java/ubuntu trusty main" >> /etc/apt/sources.list.d/java.list
+	@echo "deb-src http://ppa.launchpad.net/webupd8team/java/ubuntu precise main" >> /etc/apt/sources.list.d/java.list
+	@echo "adding webupd8team key EEA14886"
+	@apt-key adv --keyserver keyserver.ubuntu.com --recv-keys EEA14886
+	@apt-get update && apt-get install -y oracle-java8-installer oracle-java8-set-default
+	source /etc/profile
 ################################# dev ##########################################
 
 ################################# regdb ########################################
@@ -667,9 +707,17 @@ nrf24-flash-crazyradio:
 	python nrfbootload.py flash bin/cradio.bin
 ################################## nrf24 #######################################
 
-################################## firmware ######################################
-##: firmware-reverse - install firmware RE/MOD tools
-firmware-reverse:
+################################## reverse ######################################
+##: reverse-deps - install dependencies for reverse engineering
+reverse-deps:
+	apt-get install -y libc6:i386 libncurses5:i386 libstdc++6:i386 lib32z1 libbz2-1.0:i386
+
+##: reverse-android - install tools for reverse Android engineering
+reverse-android: dev-android dev-java
+	apt-get install -y abootimg smali android-sdk apktool dex2jar
+
+##: reverse-firmware - install firmware RE/MOD tools
+reverse-firmware:
 	apt-get install firmware-mod-kit -y
 	@echo "install sasquatch to extract non-standard SquashFS images"
 	$(call gitclone,https://github.com/devttys0/sasquatch)
@@ -682,8 +730,16 @@ firmware-reverse:
 	@echo "installing firmwalker"
 	$(call gitclone,https://github.com/craigz28/firmwalker)
 
-##: avatar - install Avatar symbol execution
-avatar:
+##: reverse-disasm - install disassemblers for RE
+reverse-disasm:
+	@apt install capstone radare2 -y
+
+##: reverse-debug - install debuggers for RE
+reverse-debug:
+	@apt install gdb voltron frida -y
+
+##: reverse-avatar - install Avatar symbol execution
+reverse-avatar:
 	@echo "install all build-deps"
 	apt-get build-dep qemu llvm
 	apt-get install -y liblua5.1-dev libsdl1.2-dev libsigc++-2.0-dev binutils-dev python-docutils python-pygments nasm
@@ -698,25 +754,8 @@ avatar:
 	apt-get build-dep openocd
 	git clone --recursive git://git.code.sf.net/p/openocd/code $(TMPDIR)/openocd
 	cd $(TMPDIR)/openocd && autoreconf -i && ./configure --prefix=$(PREFIX) && make -j && make install
+################################## reverse ######################################
 
-##: crossdev - install cross platfrorm dev tools
-crossdev:	deps
-	# http://www.emdebian.org/crosstools.html
-	@echo "installing Emdebian, xapt"
-	apt-get install emdebian-archive-keyring xapt -y
-	# sudo apt-get install gcc-msp430 binutils-msp430 msp430-libc msp430mcu mspdebug
-	# apt_add_source emdebian
-	# cp -f "files/etc/emdebian.list" /etc/apt/sources.list.d/emdebian.list && apt-get update -y
-	echo "deb http://ftp.us.debian.org/debian/ squeeze main" > /etc/apt/sources.list.d/emdebian.list
-	echo "deb http://www.emdebian.org/debian/ squeeze main" >> /etc/apt/sources.list.d/emdebian.list
-	echo "deb http://www.emdebian.org/debian/ oldstable main" >> /etc/apt/sources.list/emdebian.list
-	apt-get update -y
-	@echo "installing GCC-4.4 for mips, mipsel"
-	apt-get install -y linux-libc-dev-mipsel-cross libc6-mipsel-cross libc6-dev-mipsel-cross \
-	binutils-mipsel-linux-gnu gcc-4.4-mipsel-linux-gnu g++-4.4-mipsel-linux-gnu
-	apt-get install -y linux-libc-dev-mips-cross libc6-mips-cross libc6-dev-mips-cross \
-	binutils-mips-linux-gnu gcc-4.4-mips-linux-gnu g++-4.4-mips-linux-gnu -y
-################################# firmware #####################################
 
 ################################# hardware #####################################
 diy:
@@ -748,34 +787,26 @@ hardware-signal:
 ################################# summary ######################################
 #: deps - install basic dependecies and common tools            *
 deps:	archivers common
-#: dev - install ALL development tools                          *
-dev: deps dev-vcs dev-python dev-build dev-crypto dev-network
-##: airtools - install aircrack-ng, airoscript-ng, airgraph-ng   *
-airtools: aircrack airoscript airgraph
+#: dev-all - install ALL development tools                      *
+dev-all: deps dev-vcs dev-python dev-build dev-crypto dev-network dev-ide dev-java dev-crossdev
+#: dev-mini - install ALL development tools                     *
+dev-mini: deps dev-vcs dev-python dev-build dev-crypto dev-network
 #: wifi-deauth - tools for 80211 deauth: wifijammer, zizzania   *
 wifi-deauth: wifijammer zizzania
-##: wifi-libs - install system libraries for 802.11 stack        *
-wifi-libs: lorcon libuwifi wifi-python
 #: wifi-wpa - isetup ALL attacks on WPA/WPA2/WPA-Enterprise     *
 wifi-wpa: wifi-deauth wifite airgeddon handshaker
 #: wifi-wps - install ALL WPS pwning tools and scripts          *
 wifi-wps: penetrator pixiewps wpsik reaver
-#: wifi-rogueap - install Rogue AP and configuration scripts    *
-wifi-rogueap: rogueap-deps hotspotd #linset wifipumpkin
-#: wifi-autopwn - install autopwn tools                         *
-wifi-autopwn: wifite  #wpsbreak autoreaver autowps autopixiewps
-##: wifi - soft for unlicensed bands: 433/866/915Mhz 2.4Ghz      *
-wifi: fresh dev wifi-rogueap python-wifi wifi-autopwn wifi-wps wifi-wpa
+#: wifi-all - install ALL tools for Wi-Fi hacking               *
+wifi-all: fresh dev wifi-rogueap python-wifi wifi-autopwn wifi-wps wifi-wpa
 #: nrf24 - Nordic Semiconductor NRF24XXX hacking tools          *
 nrf24:	nrf24-deps nrf24-firmware
 #: ism - soft for unlicensed bands: 433/866/915Mhz 2.4Ghz       *
 ism: subghz nrf24 wifi bluetooth
-#: firmware - install firmware RE/DEBUG/MOD tools               *
-firmware:	firmware-reverse crossdev firmware
+#: reverse - install tools for RE (reverse engineering)         *
+reverse: reverse-deps reverse-avatar
 #: hardware - install hardware hacking tools                    *
 hardware: hardware-generic hardware-signal
 #: all - install EVERYTHING from EVERY category                 *
 all: clean upgrade wireless hardware firmware
-##: modwifi - install ModWifi toolkit. EXPERIMENTAL!             *
-# modwifi: modwifi-kernel modwifi-backports modwifi-firmware modwifi-drivers modwifi-ath9k modwifi-tools
 ################################# summary ######################################
